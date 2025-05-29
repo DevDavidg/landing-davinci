@@ -1,494 +1,556 @@
 "use client";
-
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useMemo } from "react";
+import Image from "next/image";
 
 interface Particle {
   x: number;
   y: number;
-  originalX: number;
-  originalY: number;
-  color: string;
-  size: number;
+  ox: number;
+  oy: number;
   vx: number;
   vy: number;
   alpha: number;
+  size: number;
+  color: [number, number, number];
   mass: number;
 }
 
-const WHIRLPOOL_DURATION = 10000;
-const PARTICLE_BRIGHTNESS_FACTOR = 1.3;
-const CLICK_PUNCH_RADIUS = 150;
-const CLICK_PUNCH_STRENGTH = 8;
-const Hero = () => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
-  const animationRef = useRef<number>(0);
-  const particles = useRef<Particle[]>([]);
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const mousePos = useRef({ x: 0, y: 0 });
-  const imageDataRef = useRef<ImageData | null>(null);
-  const whirlpoolAnimationTime = useRef(0);
+interface AnimationState {
+  whirlTime: number;
+  whirlActive: boolean;
+  returnForce: number;
+  fadeProgress: number;
+  isComplete: boolean;
+}
 
-  const isWhirlpoolActiveRef = useRef(true);
-  const animationStopTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const particleReturnForceStrengthRef = useRef(0);
+export interface HeroConfig {
+  particleStep?: number;
+  brightnessFactor?: number;
+  whirlpoolDurationMs?: number;
+  clickRadius?: number;
+  clickStrength?: number;
+  interactionRadius?: number;
+  imageSrc?: string;
+}
 
-  const clickPunchDataRef = useRef<{ x: number; y: number } | null>(null);
+const defaultConfig: Required<HeroConfig> = {
+  particleStep: 5,
+  brightnessFactor: 1.3,
+  whirlpoolDurationMs: 10000,
+  clickRadius: 150,
+  clickStrength: 8,
+  interactionRadius: 50,
+  imageSrc: "/banner-hero.png",
+};
 
-  const debounce = <F extends (...args: unknown[]) => unknown>(
-    func: F,
-    waitFor: number
-  ) => {
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-    return (...args: Parameters<F>): Promise<ReturnType<F>> =>
-      new Promise((resolve) => {
-        if (timeout) {
-          clearTimeout(timeout);
-        }
-        timeout = setTimeout(
-          () => resolve(func(...args) as ReturnType<F>),
-          waitFor
-        );
-      });
+class ParticleSystem {
+  private particles: Particle[] = [];
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+  private animationId: number = 0;
+  private config: Required<HeroConfig>;
+  private timeoutId: number | null = null;
+
+  private mouse = { x: 0, y: 0 };
+  private clickPoint: { x: number; y: number } | null = null;
+  private animationState: AnimationState = {
+    whirlTime: 0,
+    whirlActive: true,
+    returnForce: 0,
+    fadeProgress: 0,
+    isComplete: false,
   };
 
-  useEffect(() => {
-    console.log("Effect 1: Initiating image preloading for /banner-hero.png");
-    const img = new window.Image();
-    img.crossOrigin = "anonymous";
-    const handlePreloadSuccess = () => {
-      console.log("Image preloaded successfully.");
-      setImageLoaded(true);
-      setIsLoading(false);
-    };
-    const handlePreloadError = (e: string | Event) => {
-      console.error("Error preloading image.", e);
-      setImageLoaded(false);
-      setIsLoading(false);
-    };
-    img.onload = handlePreloadSuccess;
-    img.onerror = handlePreloadError;
-    img.src = "/banner-hero.png";
-    return () => {
-      img.onload = null;
-      img.onerror = null;
-    };
-  }, []);
+  constructor(canvas: HTMLCanvasElement, config: Required<HeroConfig>) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d")!;
+    this.config = config;
+  }
 
-  useEffect(() => {
-    if (isLoading) return;
-    const currentImageElement = imageRef.current;
-    if (currentImageElement) {
-      if (imageLoaded) {
-        const targetSrc = "/banner-hero.png";
-        if (!currentImageElement.src.endsWith(targetSrc)) {
-          currentImageElement.src = targetSrc;
-        }
-        const ensureImageRefIsProcessed = () => {
-          if (
-            currentImageElement.complete &&
-            currentImageElement.naturalWidth > 0
-          ) {
-            setupImageData();
-          } else {
-            const tempOnload = () => {
-              setupImageData();
-              currentImageElement.removeEventListener("load", tempOnload);
-              currentImageElement.removeEventListener("error", tempOnError);
-            };
-            const tempOnError = () => {
-              console.error(
-                "Error loading src into imageRef.current even after preload."
-              );
-              currentImageElement.removeEventListener("load", tempOnload);
-              currentImageElement.removeEventListener("error", tempOnError);
-            };
-            currentImageElement.addEventListener("load", tempOnload);
-            currentImageElement.addEventListener("error", tempOnError);
-            if (
-              currentImageElement.complete &&
-              currentImageElement.naturalWidth > 0
-            )
-              tempOnload();
-          }
-        };
-        ensureImageRefIsProcessed();
-      } else {
-      }
-    } else if (!isLoading) {
-      console.error("imageRef.current is null.");
-    }
-  }, [isLoading, imageLoaded]);
+  private calculateDistance(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number
+  ): number {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
 
-  const setupImageData = () => {
-    if (
-      !canvasRef.current ||
-      !imageRef.current ||
-      !imageLoaded ||
-      !imageRef.current.complete ||
-      imageRef.current.naturalWidth === 0
-    ) {
-      setTimeout(setupImageData, 100);
-      return;
-    }
-    const canvas = canvasRef.current;
-    if (canvas.offsetWidth === 0 || canvas.offsetHeight === 0) {
-      setTimeout(setupImageData, 100);
-      return;
-    }
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
+  private applyForce(
+    particle: Particle,
+    fx: number,
+    fy: number,
+    strength: number = 1
+  ): void {
+    particle.vx += (fx * strength) / particle.mass;
+    particle.vy += (fy * strength) / particle.mass;
+  }
 
-    const tempCanvas = document.createElement("canvas");
-    const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true });
-    if (!tempCtx) return;
+  private updateWhirlpool(): void {
+    if (!this.animationState.whirlActive) return;
 
-    const img = imageRef.current;
-    const imgAspectRatio = img.naturalWidth / img.naturalHeight;
-    const canvasAspectRatio = canvas.width / canvas.height;
-    let renderWidth, renderHeight, offsetX, offsetY;
+    this.animationState.whirlTime -= 0.8;
+    const { width, height } = this.canvas;
+    const centerX = width / 2;
+    const centerY = height / 2.2;
+    const whirlX = centerX + Math.cos(this.animationState.whirlTime) * 1.5;
+    const whirlY = centerY + Math.sin(this.animationState.whirlTime) * 1.5;
 
-    if (imgAspectRatio > canvasAspectRatio) {
-      renderHeight = canvas.height;
-      renderWidth = renderHeight * imgAspectRatio;
-      offsetX = (canvas.width - renderWidth) / 2;
-      offsetY = 0;
-    } else {
-      renderWidth = canvas.width;
-      renderHeight = renderWidth / imgAspectRatio;
-      offsetX = 0;
-      offsetY = (canvas.height - renderHeight) / 2;
-    }
-
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    tempCtx.drawImage(img, offsetX, offsetY, renderWidth, renderHeight);
-
-    try {
-      imageDataRef.current = tempCtx.getImageData(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-      );
-      createAllParticles();
-
-      isWhirlpoolActiveRef.current = true;
-      particleReturnForceStrengthRef.current = 0;
-      console.log(
-        `Whirlpool activated. Starting ${
-          WHIRLPOOL_DURATION / 1000
-        }-second timer.`
+    this.particles.forEach((particle) => {
+      const dx = whirlX - particle.x;
+      const dy = whirlY - particle.y;
+      const distance = this.calculateDistance(
+        particle.x,
+        particle.y,
+        whirlX,
+        whirlY
       );
 
-      if (animationStopTimerRef.current)
-        clearTimeout(animationStopTimerRef.current);
-      animationStopTimerRef.current = setTimeout(() => {
-        console.log(
-          `${
-            WHIRLPOOL_DURATION / 1000
-          }-second timer expired. Deactivating whirlpool, enabling return.`
+      if (distance > 1) {
+        const normalizedDistance =
+          (1 - distance / Math.max(width, height)) ** 2;
+        const radialForce = 0.035 * normalizedDistance;
+        const tangentialForce = 3.5 * normalizedDistance;
+
+        this.applyForce(particle, dx / distance, dy / distance, radialForce);
+        this.applyForce(
+          particle,
+          -dy / distance,
+          dx / distance,
+          tangentialForce
         );
-        isWhirlpoolActiveRef.current = false;
-        particleReturnForceStrengthRef.current = 0.02;
-      }, WHIRLPOOL_DURATION);
 
-      if (animationRef.current === 0) animate();
-    } catch (error) {
-      console.error("Error in setupImageData (getImageData):", error);
-    }
-  };
-
-  const createAllParticles = () => {
-    if (
-      !imageDataRef.current ||
-      !canvasRef.current ||
-      canvasRef.current.width === 0
-    ) {
-      return;
-    }
-    const canvas = canvasRef.current;
-    const imageData = imageDataRef.current;
-    const data = imageData.data;
-    particles.current = [];
-    const step = Math.max(
-      1,
-      Math.floor(Math.min(canvas.width, canvas.height) / 120)
-    );
-    for (let y = 0; y < canvas.height; y += step) {
-      for (let x = 0; x < canvas.width; x += step) {
-        const currentX = Math.floor(x);
-        const currentY = Math.floor(y);
-        if (currentX >= canvas.width || currentY >= canvas.height) continue;
-
-        const index = (currentY * canvas.width + currentX) * 4;
-        if (index + 3 >= data.length) continue;
-
-        const pixelAlpha = data[index + 3];
-
-        if (pixelAlpha > 30) {
-          const rOrig = data[index];
-          const gOrig = data[index + 1];
-          const bOrig = data[index + 2];
-
-          const r = Math.min(
-            255,
-            Math.floor(rOrig * PARTICLE_BRIGHTNESS_FACTOR)
-          );
-          const g = Math.min(
-            255,
-            Math.floor(gOrig * PARTICLE_BRIGHTNESS_FACTOR)
-          );
-          const b = Math.min(
-            255,
-            Math.floor(bOrig * PARTICLE_BRIGHTNESS_FACTOR)
-          );
-
-          const baseSize = Math.max(1.0, step / 3.5);
-          const randomSizeFactor = 0.75 + Math.random() * 0.5;
-          const particle: Particle = {
-            x: x,
-            y: y,
-            originalX: x,
-            originalY: y,
-            color: `rgb(${r}, ${g}, ${b})`,
-            size: baseSize * randomSizeFactor,
-            alpha: Math.min(1, (pixelAlpha / 255) * 1.2),
-            vx: 0,
-            vy: 0,
-            mass: 0.7 + Math.random() * 0.6,
-          };
-          particles.current.push(particle);
-        }
+        particle.vx *= 0.4;
+        particle.vy *= 0.4;
       }
-    }
-    console.log(
-      `Created ${particles.current.length} particles. Step: ${step}, Brightness: ${PARTICLE_BRIGHTNESS_FACTOR}`
-    );
-  };
+    });
+  }
 
-  const animate = () => {
-    if (!canvasRef.current || canvasRef.current.width === 0) {
-      animationRef.current = requestAnimationFrame(animate);
-      return;
-    }
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+  private updateReturnToOrigin(): void {
+    if (this.animationState.whirlActive) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let allAtOrigin = true;
 
-    const interactionRadius = 50;
-    const damping = 0.4;
-    const returnDamping = 0.93;
-    if (isWhirlpoolActiveRef.current) {
-      whirlpoolAnimationTime.current += -0.8;
-    }
-    const whirlpoolOrbitRadius = 1.5;
-    const staticCenterX = canvas.width / 2;
-    const staticCenterY = canvas.height / 2.2;
-    const whirlpoolCenterX =
-      staticCenterX +
-      whirlpoolOrbitRadius * Math.cos(whirlpoolAnimationTime.current);
-    const whirlpoolCenterY =
-      staticCenterY +
-      whirlpoolOrbitRadius * Math.sin(whirlpoolAnimationTime.current);
+    this.particles.forEach((particle) => {
+      const dx = particle.ox - particle.x;
+      const dy = particle.oy - particle.y;
+      const distanceFromOrigin = this.calculateDistance(
+        particle.x,
+        particle.y,
+        particle.ox,
+        particle.oy
+      );
 
-    const blackHoleAttraction = 0.035;
-    const swirlStrength = 3.5;
-    const blackHoleEffectRadius = Math.max(canvas.width, canvas.height) * 1.2;
-    if (clickPunchDataRef.current) {
-      const clickX = clickPunchDataRef.current.x;
-      const clickY = clickPunchDataRef.current.y;
-      for (let i = 0; i < particles.current.length; i++) {
-        const p = particles.current[i];
-        const dxClick = p.x - clickX;
-        const dyClick = p.y - clickY;
-        const distSqClick = dxClick * dxClick + dyClick * dyClick;
-
-        if (
-          distSqClick < CLICK_PUNCH_RADIUS * CLICK_PUNCH_RADIUS &&
-          distSqClick > 0.001
-        ) {
-          const distClick = Math.sqrt(distSqClick);
-          const forceFactor =
-            (CLICK_PUNCH_RADIUS - distClick) / CLICK_PUNCH_RADIUS;
-          const impulseX =
-            (dxClick / distClick) * CLICK_PUNCH_STRENGTH * forceFactor;
-          const impulseY =
-            (dyClick / distClick) * CLICK_PUNCH_STRENGTH * forceFactor;
-
-          p.vx += impulseX / p.mass;
-          p.vy += impulseY / p.mass;
-        }
-      }
-      clickPunchDataRef.current = null;
-    }
-
-    for (let i = 0; i < particles.current.length; i++) {
-      const particle = particles.current[i];
-
-      if (isWhirlpoolActiveRef.current) {
-        const dxToWhirlpool = whirlpoolCenterX - particle.x;
-        const dyToWhirlpool = whirlpoolCenterY - particle.y;
-        const distSqToWhirlpool =
-          dxToWhirlpool * dxToWhirlpool + dyToWhirlpool * dyToWhirlpool;
-
-        if (
-          distSqToWhirlpool < blackHoleEffectRadius * blackHoleEffectRadius &&
-          distSqToWhirlpool > 1
-        ) {
-          const distToWhirlpool = Math.sqrt(distSqToWhirlpool);
-          const normalizedDistanceInRadius =
-            distToWhirlpool / blackHoleEffectRadius;
-          const forceMagnitude =
-            (1 - normalizedDistanceInRadius) * (1 - normalizedDistanceInRadius);
-          const pullX =
-            (dxToWhirlpool / distToWhirlpool) *
-            blackHoleAttraction *
-            forceMagnitude;
-          const pullY =
-            (dyToWhirlpool / distToWhirlpool) *
-            blackHoleAttraction *
-            forceMagnitude;
-          particle.vx += pullX / particle.mass;
-          particle.vy += pullY / particle.mass;
-
-          const swirlX =
-            (-dyToWhirlpool / distToWhirlpool) * swirlStrength * forceMagnitude;
-          const swirlY =
-            (dxToWhirlpool / distToWhirlpool) * swirlStrength * forceMagnitude;
-          particle.vx += swirlX / particle.mass;
-          particle.vy += swirlY / particle.mass;
-        }
+      if (distanceFromOrigin > 32) {
+        allAtOrigin = false;
       }
 
-      const dxMouse = mousePos.current.x - particle.x;
-      const dyMouse = mousePos.current.y - particle.y;
-      const distSqMouse = dxMouse * dxMouse + dyMouse * dyMouse;
+      this.applyForce(particle, dx, dy, this.animationState.returnForce);
+      particle.vx *= 0.93;
+      particle.vy *= 0.93;
+    });
 
-      if (
-        distSqMouse < interactionRadius * interactionRadius &&
-        distSqMouse > 0.001
-      ) {
-        const distanceMouse = Math.sqrt(distSqMouse);
-        const force = (interactionRadius - distanceMouse) / interactionRadius;
-        particle.vx -=
-          ((dxMouse / distanceMouse) * force * 2.0) / particle.mass;
-        particle.vy -=
-          ((dyMouse / distanceMouse) * force * 2.0) / particle.mass;
+    if (allAtOrigin && this.animationState.fadeProgress < 1) {
+      this.animationState.fadeProgress = Math.min(
+        this.animationState.fadeProgress + 0.016,
+        1
+      );
+      if (this.animationState.fadeProgress >= 1) {
+        this.animationState.isComplete = true;
       }
+    }
+  }
 
-      if (!isWhirlpoolActiveRef.current) {
-        particle.vx +=
-          ((particle.originalX - particle.x) *
-            particleReturnForceStrengthRef.current) /
-          particle.mass;
-        particle.vy +=
-          ((particle.originalY - particle.y) *
-            particleReturnForceStrengthRef.current) /
-          particle.mass;
+  private updateMouseInteraction(): void {
+    this.particles.forEach((particle) => {
+      const distance = this.calculateDistance(
+        particle.x,
+        particle.y,
+        this.mouse.x,
+        this.mouse.y
+      );
+
+      if (distance < this.config.interactionRadius && distance > 0.1) {
+        const force =
+          (this.config.interactionRadius - distance) /
+          this.config.interactionRadius;
+        const dx = this.mouse.x - particle.x;
+        const dy = this.mouse.y - particle.y;
+
+        this.applyForce(particle, -dx / distance, -dy / distance, force * 2.0);
       }
+    });
+  }
 
-      if (isWhirlpoolActiveRef.current) {
-        particle.vx *= damping;
-        particle.vy *= damping;
-      } else {
-        particle.vx *= returnDamping;
-        particle.vy *= returnDamping;
-        const distToOriginalSq =
-          (particle.originalX - particle.x) ** 2 +
-          (particle.originalY - particle.y) ** 2;
-        const velocitySq = particle.vx ** 2 + particle.vy ** 2;
-        if (distToOriginalSq < 0.25 && velocitySq < 0.05) {
-          particle.x = particle.originalX;
-          particle.y = particle.originalY;
-          particle.vx = 0;
-          particle.vy = 0;
-        }
+  private updateClickEffect(): void {
+    if (!this.clickPoint) return;
+
+    const clickPoint = this.clickPoint;
+    this.particles.forEach((particle) => {
+      const distance = this.calculateDistance(
+        particle.x,
+        particle.y,
+        clickPoint.x,
+        clickPoint.y
+      );
+
+      if (distance < this.config.clickRadius && distance > 0.1) {
+        const force =
+          (this.config.clickRadius - distance) / this.config.clickRadius;
+        const dx = particle.x - clickPoint.x;
+        const dy = particle.y - clickPoint.y;
+
+        this.applyForce(
+          particle,
+          dx / distance,
+          dy / distance,
+          this.config.clickStrength * force
+        );
       }
+    });
 
+    this.clickPoint = null;
+  }
+
+  private updateParticles(): void {
+    this.particles.forEach((particle) => {
       particle.x += particle.vx;
       particle.y += particle.vy;
+    });
+  }
 
-      ctx.globalAlpha = particle.alpha;
-      ctx.fillStyle = particle.color;
-      ctx.fillRect(
+  private render(): void {
+    const { width, height } = this.canvas;
+    this.ctx.clearRect(0, 0, width, height);
+
+    this.particles.forEach((particle) => {
+      this.ctx.globalAlpha = particle.alpha;
+      this.ctx.fillStyle = `rgb(${particle.color[0]},${particle.color[1]},${particle.color[2]})`;
+      this.ctx.fillRect(
         particle.x - particle.size / 2,
         particle.y - particle.size / 2,
         particle.size,
         particle.size
       );
-    }
-    ctx.globalAlpha = 1;
-    animationRef.current = requestAnimationFrame(animate);
-  };
+    });
+  }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    mousePos.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  };
+  public update(): boolean {
+    this.updateClickEffect();
+    this.updateWhirlpool();
+    this.updateReturnToOrigin();
+    this.updateMouseInteraction();
+    this.updateParticles();
+    this.render();
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (!canvasRef.current) return;
-    const rect = canvasRef.current.getBoundingClientRect();
-    clickPunchDataRef.current = {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
+    return !this.animationState.isComplete;
+  }
+
+  public setMousePosition(x: number, y: number): void {
+    this.mouse.x = x;
+    this.mouse.y = y;
+  }
+
+  public triggerClick(x: number, y: number): void {
+    this.clickPoint = { x, y };
+  }
+
+  public initialize(imageData: ImageData): void {
+    const { width, height, data } = imageData;
+    const step = Math.max(1, this.config.particleStep);
+
+    this.particles = [];
+    this.animationState = {
+      whirlTime: 0,
+      whirlActive: true,
+      returnForce: 0,
+      fadeProgress: 0,
+      isComplete: false,
     };
-    console.log("Punch triggered at:", clickPunchDataRef.current);
-  };
 
-  const debouncedSetupImageDataRef = useRef(debounce(setupImageData, 300));
+    for (let y = 0; y < height; y += step) {
+      for (let x = 0; x < width; x += step) {
+        const index = (y * width + x) * 4;
+        const alpha = data[index + 3];
+
+        if (alpha > 30) {
+          const r = Math.min(255, data[index] * this.config.brightnessFactor);
+          const g = Math.min(
+            255,
+            data[index + 1] * this.config.brightnessFactor
+          );
+          const b = Math.min(
+            255,
+            data[index + 2] * this.config.brightnessFactor
+          );
+
+          this.particles.push({
+            x,
+            y,
+            ox: x,
+            oy: y,
+            vx: 0,
+            vy: 0,
+            alpha: (alpha / 255) * 1.2,
+            size: Math.max(1, step / 3) * (0.75 + Math.random() * 0.5),
+            color: [r, g, b],
+            mass: 0.7 + Math.random() * 0.6,
+          });
+        }
+      }
+    }
+
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+    }
+
+    this.timeoutId = window.setTimeout(() => {
+      this.animationState.whirlActive = false;
+      this.animationState.returnForce = 0.02;
+    }, this.config.whirlpoolDurationMs);
+  }
+
+  public getFadeProgress(): number {
+    return this.animationState.fadeProgress;
+  }
+
+  public isComplete(): boolean {
+    return this.animationState.isComplete;
+  }
+
+  public destroy(): void {
+    if (this.animationId) {
+      cancelAnimationFrame(this.animationId);
+      this.animationId = 0;
+    }
+    if (this.timeoutId) {
+      clearTimeout(this.timeoutId);
+      this.timeoutId = null;
+    }
+  }
+}
+
+const useImageLoader = (src: string) => {
+  const [imageData, setImageData] = useState<HTMLImageElement | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const handleResize = () => {
-      if (canvasRef.current && imageLoaded && particles.current.length > 0) {
-        if (animationRef.current) cancelAnimationFrame(animationRef.current);
-        animationRef.current = 0;
-        debouncedSetupImageDataRef.current();
-      }
+    const img = new window.Image();
+    img.crossOrigin = "anonymous";
+
+    const loadPromise = new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error(`Failed to load image: ${src}`));
+    });
+
+    img.src = src;
+
+    loadPromise
+      .then(() => {
+        setImageData(img);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        setError(err);
+        setIsLoading(false);
+      });
+
+    return () => {
+      img.onload = null;
+      img.onerror = null;
     };
+  }, [src]);
+
+  const processImage = useCallback(
+    (img: HTMLImageElement, width: number, height: number): ImageData => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const aspectRatio = img.naturalWidth / img.naturalHeight;
+      const canvasAspectRatio = width / height;
+
+      let drawWidth, drawHeight, offsetX, offsetY;
+
+      if (aspectRatio > canvasAspectRatio) {
+        drawHeight = height;
+        drawWidth = drawHeight * aspectRatio;
+        offsetX = (width - drawWidth) / 2;
+        offsetY = 0;
+      } else {
+        drawWidth = width;
+        drawHeight = drawWidth / aspectRatio;
+        offsetX = 0;
+        offsetY = (height - drawHeight) / 2;
+      }
+
+      ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+      return ctx.getImageData(0, 0, width, height);
+    },
+    []
+  );
+
+  return { imageData, isLoading, error, processImage };
+};
+
+const useParticleAnimation = (
+  canvasRef: React.RefObject<HTMLCanvasElement | null>,
+  imageData: HTMLImageElement | null,
+  config: Required<HeroConfig>,
+  processImage: (
+    img: HTMLImageElement,
+    width: number,
+    height: number
+  ) => ImageData
+) => {
+  const particleSystemRef = useRef<ParticleSystem | null>(null);
+  const [fadeProgress, setFadeProgress] = useState(0);
+  const [isComplete, setIsComplete] = useState(false);
+
+  const animate = useCallback(() => {
+    if (!particleSystemRef.current) return;
+
+    const shouldContinue = particleSystemRef.current.update();
+    setFadeProgress(particleSystemRef.current.getFadeProgress());
+    setIsComplete(particleSystemRef.current.isComplete());
+
+    if (shouldContinue) {
+      requestAnimationFrame(animate);
+    }
+  }, []);
+
+  const initializeParticles = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !imageData) return;
+
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+
+    const newData = processImage(imageData, canvas.width, canvas.height);
+
+    if (particleSystemRef.current) {
+      particleSystemRef.current.destroy();
+    }
+
+    const particleSystem = new ParticleSystem(canvas, config);
+    particleSystem.initialize(newData);
+    particleSystemRef.current = particleSystem;
+
+    requestAnimationFrame(animate);
+  }, [canvasRef, imageData, config, processImage, animate]);
+
+  useEffect(() => {
+    if (!imageData) return;
+
+    initializeParticles();
+
+    const handleResize = () => {
+      setTimeout(initializeParticles, 100);
+    };
+
     window.addEventListener("resize", handleResize);
+
     return () => {
       window.removeEventListener("resize", handleResize);
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-      if (animationStopTimerRef.current)
-        clearTimeout(animationStopTimerRef.current);
+      if (particleSystemRef.current) {
+        particleSystemRef.current.destroy();
+        particleSystemRef.current = null;
+      }
     };
-  }, [imageLoaded]);
+  }, [initializeParticles, imageData]);
 
-  if (isLoading) {
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !particleSystemRef.current) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      particleSystemRef.current.setMousePosition(x, y);
+    },
+    [canvasRef]
+  );
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !particleSystemRef.current) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      particleSystemRef.current.triggerClick(x, y);
+    },
+    [canvasRef]
+  );
+
+  return {
+    fadeProgress,
+    isComplete,
+    handleMouseMove,
+    handleClick,
+  };
+};
+
+const Hero = (props: HeroConfig = {}) => {
+  const config = useMemo(() => ({ ...defaultConfig, ...props }), [props]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { imageData, isLoading, error, processImage } = useImageLoader(
+    config.imageSrc
+  );
+
+  const { fadeProgress, isComplete, handleMouseMove, handleClick } =
+    useParticleAnimation(canvasRef, imageData, config, processImage);
+
+  if (error) {
     return (
-      <div className="relative h-screen w-full flex items-center justify-center bg-black">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 border-4 border-t-white border-r-white/30 border-b-white/30 border-l-white/30 rounded-full animate-spin"></div>
-          <p className="text-white text-lg font-['Inter']">
-            Cargando Partículas...
-          </p>
+      <div className="h-screen w-full bg-black flex items-center justify-center">
+        <div className="text-white text-center">
+          <h2 className="text-xl mb-2">Error loading hero image</h2>
+          <p className="text-gray-400">{error.message}</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="relative h-screen w-full flex flex-col items-center justify-center text-white overflow-hidden bg-[#000010]">
-      <div
-        className="absolute inset-0 cursor-pointer z-10"
-        onMouseMove={handleMouseMove}
-        onClick={handleClick}
-      >
-        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
-        <img
-          ref={imageRef}
-          style={{ display: "none" }}
-          alt="Hidden reference for particle generation"
-          crossOrigin="anonymous"
-        />
+  if (isLoading) {
+    return (
+      <div className="h-screen w-full bg-black flex items-center justify-center">
+        <div className="animate-spin h-12 w-12 border-4 border-t-white rounded-full" />
       </div>
-      <div className="absolute z-20 flex flex-col items-center pointer-events-none"></div>
+    );
+  }
+
+  return (
+    <div className="relative h-screen w-full overflow-hidden bg-[#000010]">
+      {!isComplete && (
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 w-full h-full cursor-pointer z-10"
+          onMouseMove={handleMouseMove}
+          onClick={handleClick}
+        />
+      )}
+      <Image
+        src={config.imageSrc}
+        alt="Hero"
+        fill
+        className="absolute inset-0 w-full h-full object-cover z-0"
+        style={{
+          opacity: fadeProgress,
+          transition: fadeProgress > 0 ? "opacity 2s ease-in-out" : "none",
+        }}
+        priority
+        sizes="100vw"
+      />
     </div>
   );
 };
