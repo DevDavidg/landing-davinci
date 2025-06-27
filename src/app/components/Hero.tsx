@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import Image from "next/image";
+import HeroLayout from "./HeroLayout";
 
 interface Particle {
   x: number;
@@ -34,9 +35,9 @@ export interface HeroConfig {
 }
 
 const defaultConfig: Required<HeroConfig> = {
-  particleStep: 5,
-  brightnessFactor: 1.3,
-  whirlpoolDurationMs: 10000,
+  particleStep: 6,
+  brightnessFactor: 1.5,
+  whirlpoolDurationMs: 4000,
   clickRadius: 150,
   clickStrength: 8,
   interactionRadius: 50,
@@ -531,6 +532,11 @@ const Hero = (props: HeroConfig = {}) => {
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[#000010]">
+      <HeroLayout
+        isAnimationComplete={isComplete}
+        fadeProgress={fadeProgress}
+      />
+
       {!isComplete && (
         <canvas
           ref={canvasRef}
@@ -539,6 +545,7 @@ const Hero = (props: HeroConfig = {}) => {
           onClick={handleClick}
         />
       )}
+
       <Image
         src={config.imageSrc}
         alt="Hero"
