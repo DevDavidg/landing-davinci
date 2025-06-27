@@ -2,78 +2,74 @@
 import React, { useState, useEffect } from "react";
 import Image from "next/image";
 
-interface Artwork {
+export interface Artwork {
   id: number;
   title: string;
   description: string;
-  dimensions: string;
   year: string;
   image: string;
-  price?: string;
+}
+
+interface ColeccionProps {
+  onShowDemo: (artwork: Artwork) => void;
 }
 
 const artworks: Artwork[] = [
   {
     id: 1,
-    title: "Nebulosa de Andrómeda",
+    title: "La Persistencia de la Memoria",
     description:
-      "Una interpretación pictórica de la galaxia más cercana a la Vía Láctea",
-    dimensions: "120x80 cm",
-    year: "2025",
-    image: "/banner-hero.png",
-    price: "$1,200",
+      "La persistencia de la memoria, de Salvador Dalí, es un óleo sobre lienzo que desafía la percepción del tiempo y la realidad con sus relojes blandos y un paisaje onírico.",
+    year: "1931",
+    image: "/cuadros/La persistencia de la memoria.jpg",
   },
   {
     id: 2,
-    title: "Constelación del Cisne",
-    description: "Los colores vibrantes de una región de formación estelar",
-    dimensions: "100x70 cm",
-    year: "2025",
-    image: "/banner-hero.png",
-    price: "$950",
+    title: "Mona Lisa",
+    description:
+      "La Mona Lisa, de Leonardo da Vinci, es un retrato que cautiva por su enigmática sonrisa y la maestría técnica del sfumato, que difumina los contornos y crea una atmósfera de misterio.",
+    year: "1503-1519",
+    image: "/cuadros/mona lisa.jpg",
   },
   {
     id: 3,
-    title: "Planeta Dorado",
-    description: "Un mundo exótico bañado en luz dorada y misterio",
-    dimensions: "90x60 cm",
-    year: "2025",
-    image: "/banner-hero.png",
-    price: "$800",
+    title: "Noche Estrellada",
+    description:
+      "La noche estrellada, de Vincent van Gogh, es una obra que expresa la intensa agitación emocional del artista a través de un cielo nocturno vibrante y un ciprés que se alza como una llama oscura.",
+    year: "1889",
+    image: "/cuadros/noche estrellada.jpg",
   },
   {
     id: 4,
-    title: "Tormenta Solar",
-    description: "La danza magnética de las partículas solares",
-    dimensions: "150x100 cm",
-    year: "2025",
-    image: "/banner-hero.png",
-    price: "$1,500",
+    title: "Torre de Babel",
+    description:
+      "La Torre de Babel, de Pieter Bruegel el Viejo, es una representación de la ambición humana y su fragilidad, donde una multitud de pequeños detalles revela la complejidad de la construcción.",
+    year: "1563",
+    image: "/cuadros/torre de babel.jpg",
   },
   {
     id: 5,
-    title: "Galaxia Espiral",
-    description: "Los brazos dorados de una galaxia en rotación",
-    dimensions: "110x80 cm",
-    year: "2025",
-    image: "/banner-hero.png",
-    price: "$1,100",
+    title: "Tributo de la Moneda",
+    description:
+      "El Tributo de la Moneda, de Masaccio, es un fresco que destaca por su uso revolucionario de la perspectiva y el realismo, narrando un pasaje bíblico con una gravedad y humanidad sin precedentes.",
+    year: "c. 1425",
+    image: "/cuadros/Tributo de la moneda.jpg",
   },
   {
     id: 6,
-    title: "Cúmulo Estelar",
-    description: "Un grupo de estrellas jóvenes iluminando el cosmos",
-    dimensions: "80x60 cm",
-    year: "2025",
-    image: "/banner-hero.png",
-    price: "$750",
+    title: "Vaca Amarilla",
+    description:
+      "La Vaca Amarilla, de Franz Marc, es una pintura que utiliza el color para transmitir emociones, representando a una vaca en tonos amarillos vibrantes que simbolizan la feminidad y la conexión con la naturaleza.",
+    year: "1911",
+    image: "/cuadros/Vaca amarilla.jpg",
   },
 ];
 
-const Coleccion: React.FC = () => {
+const Coleccion: React.FC<ColeccionProps> = ({ onShowDemo }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [selectedArtwork, setSelectedArtwork] = useState<Artwork | null>(null);
   const [hoveredId, setHoveredId] = useState<number | null>(null);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -85,7 +81,7 @@ const Coleccion: React.FC = () => {
       { threshold: 0.1 }
     );
 
-    const section = document.getElementById("colección");
+    const section = document.getElementById("coleccion");
     if (section) {
       observer.observe(section);
     }
@@ -97,13 +93,23 @@ const Coleccion: React.FC = () => {
     setSelectedArtwork(artwork);
   };
 
+  const handleDemoClick = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    artwork: Artwork
+  ) => {
+    e.stopPropagation();
+    onShowDemo(artwork);
+  };
+
   const closeModal = () => {
     setSelectedArtwork(null);
   };
 
+  const visibleArtworks = showAll ? artworks : artworks.slice(0, 3);
+
   return (
     <section
-      id="colección"
+      id="coleccion"
       className="min-h-screen bg-gradient-to-br from-[#000010] via-[#0a0a1a] to-[#000010] relative overflow-hidden"
     >
       {/* Background Effects */}
@@ -158,15 +164,15 @@ const Coleccion: React.FC = () => {
               transitionDelay: "0.4s",
             }}
           >
-            Cada obra captura la magnificencia del cosmos, desde nebulosas
-            distantes hasta galaxias en espiral, transformando la ciencia
-            astronómica en arte visual.
+            Cada obra es una ventana a la historia del arte, un diálogo entre el
+            genio creativo y su tiempo. Descubre los secretos detrás de las
+            pinceladas maestras.
           </p>
         </div>
 
         {/* Gallery Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-20">
-          {artworks.map((artwork, index) => (
+          {visibleArtworks.map((artwork, index) => (
             <div
               key={artwork.id}
               className={`relative group cursor-pointer transition-all duration-800 ${
@@ -194,6 +200,14 @@ const Coleccion: React.FC = () => {
                   {/* Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
+                  {/* Demo Button */}
+                  <button
+                    onClick={(e) => handleDemoClick(e, artwork)}
+                    className="absolute top-4 left-4 bg-black/50 text-white py-2 px-4 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300 backdrop-blur-sm border border-white/20 hover:bg-white/20 z-10"
+                  >
+                    Ver demo
+                  </button>
+
                   {/* Hover Effects */}
                   <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
                     <div className="absolute inset-0 border-2 border-yellow-200/50 rounded-lg scale-95 group-hover:scale-100 transition-transform duration-500" />
@@ -214,23 +228,12 @@ const Coleccion: React.FC = () => {
                   >
                     {artwork.title}
                   </h3>
-                  <p className="text-gray-400 mb-4 line-clamp-2">
+                  <p className="text-gray-400 mb-4 line-clamp-3">
                     {artwork.description}
                   </p>
                   <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500">{artwork.dimensions}</span>
                     <span className="text-gray-500">{artwork.year}</span>
                   </div>
-                  {artwork.price && (
-                    <div className="mt-4 text-right">
-                      <span
-                        className="text-xl font-medium"
-                        style={{ color: "#f8edbd" }}
-                      >
-                        {artwork.price}
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
@@ -240,6 +243,7 @@ const Coleccion: React.FC = () => {
         {/* Call to Action */}
         <div className="text-center">
           <button
+            onClick={() => setShowAll(!showAll)}
             className={`relative px-16 py-5 rounded-lg text-xl overflow-hidden transform transition-all duration-800 hover:scale-110 hover:shadow-2xl group perspective-1000 ${
               isVisible
                 ? "opacity-100 translate-y-0"
@@ -249,32 +253,62 @@ const Coleccion: React.FC = () => {
               transitionDelay: "1.2s",
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-yellow-200 via-yellow-100 to-yellow-200 rounded-lg transition-all duration-500 group-hover:from-yellow-100 group-hover:via-yellow-50 group-hover:to-yellow-100" />
-
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-200 via-yellow-100 to-yellow-200 rounded-lg transition-all duration-500 group-hover:from-yellow-100 group-hover:via-yellow-50 group-hover:to-yellow-100 group-hover:rotate-y-12" />
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-30 transition-all duration-700 transform skew-x-12 -translate-x-full group-hover:translate-x-full" />
-
+            <div
+              className="absolute inset-0 rounded-lg"
+              style={{
+                background:
+                  "conic-gradient(from 0deg, transparent, rgba(255,255,255,0.1), transparent)",
+                opacity: 0,
+                animationName: "spin",
+                animationDuration: "2s",
+                animationTimingFunction: "linear",
+                animationIterationCount: "infinite",
+              }}
+            />
             <div className="absolute -inset-2 bg-gradient-to-r from-yellow-200/20 via-yellow-100/20 to-yellow-200/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-
             <span className="relative text-black font-medium z-10 transition-all duration-300 group-hover:drop-shadow-sm">
-              Ver Colección Completa
+              {showAll ? "Ver menos" : "Ver colección completa"}
             </span>
+            <div
+              className="absolute inset-0 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+              style={{
+                background:
+                  "radial-gradient(circle at center, rgba(255,255,255,0.1) 0%, transparent 70%)",
+                transform: "scale(0.8)",
+                animationName: "pulse",
+                animationDuration: "1.5s",
+                animationTimingFunction: "ease-in-out",
+                animationIterationCount: "infinite",
+              }}
+            />
           </button>
         </div>
       </div>
 
       {/* Modal */}
       {selectedArtwork && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-8">
-          <div className="bg-gradient-to-br from-gray-900 to-black rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto relative border border-yellow-200/30">
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-lg flex items-center justify-center z-50 transition-opacity duration-300 p-4"
+          onClick={closeModal}
+        >
+          <div
+            className="bg-gradient-to-br from-[#0a0a1a] to-[#000010] rounded-lg shadow-2xl w-full max-w-6xl max-h-full overflow-y-auto flex flex-col relative border border-yellow-200/20"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
             <button
               onClick={closeModal}
               className="absolute top-4 right-4 text-white hover:text-yellow-200 transition-colors duration-300 z-10"
+              aria-label="Cerrar modal"
             >
               <svg
-                className="w-8 h-8"
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-8 w-8"
                 fill="none"
-                stroke="currentColor"
                 viewBox="0 0 24 24"
+                stroke="currentColor"
               >
                 <path
                   strokeLinecap="round"
@@ -285,56 +319,33 @@ const Coleccion: React.FC = () => {
               </svg>
             </button>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-8">
-              <div className="relative aspect-[4/3] rounded-lg overflow-hidden">
-                <Image
-                  src={selectedArtwork.image}
-                  alt={selectedArtwork.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                />
-              </div>
+            {/* Image */}
+            <div className="w-full md:h-[70vh] h-[50vh] relative">
+              <Image
+                src={selectedArtwork.image}
+                alt={selectedArtwork.title}
+                fill
+                className="object-contain"
+                sizes="100vw"
+              />
+            </div>
 
-              <div className="flex flex-col justify-center">
-                <h3
-                  className="text-4xl font-light mb-4"
-                  style={{ color: "#f8edbd" }}
-                >
-                  {selectedArtwork.title}
-                </h3>
-                <p className="text-gray-300 mb-6 text-lg leading-relaxed">
-                  {selectedArtwork.description}
-                </p>
-                <div className="space-y-3 mb-8">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Dimensiones:</span>
-                    <span className="text-gray-200">
-                      {selectedArtwork.dimensions}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Año:</span>
-                    <span className="text-gray-200">
-                      {selectedArtwork.year}
-                    </span>
-                  </div>
-                  {selectedArtwork.price && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-400">Precio:</span>
-                      <span
-                        className="text-2xl font-medium"
-                        style={{ color: "#f8edbd" }}
-                      >
-                        {selectedArtwork.price}
-                      </span>
-                    </div>
-                  )}
+            {/* Content */}
+            <div className="p-8 text-center">
+              <h3
+                className="text-4xl font-light mb-4"
+                style={{ color: "#f8edbd" }}
+              >
+                {selectedArtwork.title}
+              </h3>
+              <p className="text-gray-300 mb-8 leading-relaxed max-w-3xl mx-auto">
+                {selectedArtwork.description}
+              </p>
+              <div className="inline-block">
+                <div className="flex justify-between">
+                  <span className="text-gray-400 mr-4">Año:</span>
+                  <span className="text-gray-200">{selectedArtwork.year}</span>
                 </div>
-
-                <button className="w-full py-4 rounded-lg text-lg font-medium bg-gradient-to-r from-yellow-200 to-yellow-100 text-black hover:from-yellow-100 hover:to-yellow-50 transition-all duration-300 transform hover:scale-105">
-                  Consultar Disponibilidad
-                </button>
               </div>
             </div>
           </div>
@@ -357,6 +368,13 @@ const Coleccion: React.FC = () => {
         .line-clamp-2 {
           display: -webkit-box;
           -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+
+        .line-clamp-3 {
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;
           overflow: hidden;
         }

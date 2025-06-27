@@ -32,6 +32,9 @@ export interface HeroConfig {
   clickStrength?: number;
   interactionRadius?: number;
   imageSrc?: string;
+  isDemoMode?: boolean;
+  title?: string;
+  description?: string;
 }
 
 const defaultConfig: Required<HeroConfig> = {
@@ -42,6 +45,9 @@ const defaultConfig: Required<HeroConfig> = {
   clickStrength: 8,
   interactionRadius: 50,
   imageSrc: "/banner-hero.png",
+  isDemoMode: false,
+  title: "Galaxia al óleo",
+  description: "Una mirada artística al cosmos en cada trazo.",
 };
 
 class ParticleSystem {
@@ -582,6 +588,8 @@ const Hero = (props: HeroConfig = {}) => {
       <HeroLayout
         isAnimationComplete={isComplete}
         fadeProgress={fadeProgress}
+        title={config.title}
+        description={config.description}
       />
 
       {!isComplete && (

@@ -1,15 +1,21 @@
 import React from "react";
+import Link from "next/link";
 
 interface HeroLayoutProps {
   isAnimationComplete: boolean;
   fadeProgress: number;
+  title?: string;
+  description?: string;
 }
 
 const HeroLayout: React.FC<HeroLayoutProps> = ({
   isAnimationComplete,
   fadeProgress,
+  title,
+  description,
 }) => {
   const shouldShowButtons = fadeProgress > 0.2;
+  const titleParts = title ? title.split(" ") : [];
 
   return (
     <div className="absolute inset-0 flex items-center justify-center">
@@ -54,11 +60,11 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
         }}
       >
         {[
-          { label: "Inicio", href: "#" },
-          { label: "Colección", href: "#colección" },
-          { label: "Contacto", href: "#contacto" },
+          { label: "Inicio", href: "/#" },
+          { label: "Colección", href: "/#coleccion" },
+          { label: "Contacto", href: "/#contacto" },
         ].map((item, index) => (
-          <a
+          <Link
             key={item.label}
             href={item.href}
             className="hover:text-gray-300 transition-all duration-300 relative group overflow-hidden"
@@ -71,7 +77,7 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
             <span className="relative z-10">{item.label}</span>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
             <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-yellow-200 to-yellow-100 scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
-          </a>
+          </Link>
         ))}
       </nav>
 
@@ -90,38 +96,25 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
         }}
       >
         <h1 className="text-6xl md:text-8xl font-light mb-6 relative overflow-hidden">
-          <span
-            className={`inline-block transition-all duration-800 ${
-              isAnimationComplete
-                ? "transform translate-y-0 opacity-100"
-                : "transform translate-y-full opacity-0"
-            }`}
-            style={{ transitionDelay: isAnimationComplete ? "0.3s" : "0s" }}
-          >
-            Galaxia
-          </span>
-          <span className="mx-4" />
-          <span
-            className={`inline-block transition-all duration-800 ${
-              isAnimationComplete
-                ? "transform translate-y-0 opacity-100"
-                : "transform translate-y-full opacity-0"
-            }`}
-            style={{ transitionDelay: isAnimationComplete ? "0.4s" : "0s" }}
-          >
-            al
-          </span>
-          <span className="mx-4" />
-          <span
-            className={`inline-block transition-all duration-800 ${
-              isAnimationComplete
-                ? "transform translate-y-0 opacity-100"
-                : "transform translate-y-full opacity-0"
-            }`}
-            style={{ transitionDelay: isAnimationComplete ? "0.5s" : "0s" }}
-          >
-            óleo
-          </span>
+          {titleParts.map((part, index) => (
+            <React.Fragment key={index}>
+              <span
+                className={`inline-block transition-all duration-800 ${
+                  isAnimationComplete
+                    ? "transform translate-y-0 opacity-100"
+                    : "transform translate-y-full opacity-0"
+                }`}
+                style={{
+                  transitionDelay: isAnimationComplete
+                    ? `${0.3 + index * 0.1}s`
+                    : "0s",
+                }}
+              >
+                {part}
+              </span>
+              {index < titleParts.length - 1 && <span className="mx-4" />}
+            </React.Fragment>
+          ))}
 
           <div
             className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-100/20 to-transparent opacity-0"
@@ -143,9 +136,13 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
           }`}
           style={{ transitionDelay: isAnimationComplete ? "0.6s" : "0s" }}
         >
-          Una mirada artística
-          <br />
-          al cosmos en cada trazo.
+          {description &&
+            description.split("\n").map((line, i) => (
+              <React.Fragment key={i}>
+                {line}
+                <br />
+              </React.Fragment>
+            ))}
         </p>
       </div>
 
@@ -160,7 +157,10 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
           transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
         }}
       >
-        <button className="relative px-12 py-4 rounded-lg text-xl overflow-hidden transform transition-all duration-500 hover:scale-110 hover:shadow-2xl group perspective-1000">
+        <Link
+          href="/#coleccion"
+          className="relative px-12 py-4 rounded-lg text-xl overflow-hidden transform transition-all duration-500 hover:scale-110 hover:shadow-2xl group perspective-1000"
+        >
           <div className="absolute inset-0 bg-gradient-to-r from-yellow-200 via-yellow-100 to-yellow-200 rounded-lg transition-all duration-500 group-hover:from-yellow-100 group-hover:via-yellow-50 group-hover:to-yellow-100 group-hover:rotate-y-12" />
 
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white to-transparent opacity-0 group-hover:opacity-30 transition-all duration-700 transform skew-x-12 -translate-x-full group-hover:translate-x-full" />
@@ -196,9 +196,10 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
               animationIterationCount: "infinite",
             }}
           />
-        </button>
+        </Link>
 
-        <button
+        <Link
+          href="/#coleccion"
           className="px-12 py-4 rounded-lg text-xl transition-all duration-500 hover:scale-110 hover:shadow-2xl relative overflow-hidden group transform hover:-translate-y-2 perspective-1000"
           style={{
             border: "2px solid #f8edbd",
@@ -244,7 +245,7 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
           </span>
 
           <div className="absolute top-1/2 left-1/2 w-0 h-0 border-4 border-transparent group-hover:w-2 group-hover:h-2 group-hover:border-yellow-100 rounded-full transition-all duration-500 transform -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100" />
-        </button>
+        </Link>
       </div>
 
       <style jsx>{`
