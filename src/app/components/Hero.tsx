@@ -35,9 +35,9 @@ export interface HeroConfig {
 }
 
 const defaultConfig: Required<HeroConfig> = {
-  particleStep: 6,
+  particleStep: 7,
   brightnessFactor: 1.5,
-  whirlpoolDurationMs: 4000,
+  whirlpoolDurationMs: 2500,
   clickRadius: 150,
   clickStrength: 8,
   interactionRadius: 50,
@@ -155,7 +155,7 @@ class ParticleSystem {
 
     if (allAtOrigin && this.animationState.fadeProgress < 1) {
       this.animationState.fadeProgress = Math.min(
-        this.animationState.fadeProgress + 0.016,
+        this.animationState.fadeProgress + 0.025,
         1
       );
       if (this.animationState.fadeProgress >= 1) {
@@ -309,7 +309,7 @@ class ParticleSystem {
 
     this.timeoutId = window.setTimeout(() => {
       this.animationState.whirlActive = false;
-      this.animationState.returnForce = 0.02;
+      this.animationState.returnForce = 0.08;
     }, this.config.whirlpoolDurationMs);
   }
 
@@ -510,6 +510,53 @@ const Hero = (props: HeroConfig = {}) => {
 
   const { fadeProgress, isComplete, handleMouseMove, handleClick } =
     useParticleAnimation(canvasRef, imageData, config, processImage);
+
+  // Scroll lock effect - mantiene el scroll bloqueado hasta que la animación termine
+  useEffect(() => {
+    const body = document.body;
+    const html = document.documentElement;
+
+    // Si la animación no está completa o el fadeProgress no ha terminado, bloquear scroll
+    const shouldLockScroll = !isComplete || fadeProgress < 1;
+
+    if (shouldLockScroll) {
+      // Guardar la posición actual del scroll
+      const scrollY = window.scrollY;
+
+      // Aplicar estilos para bloquear el scroll
+      body.style.position = "fixed";
+      body.style.top = `-${scrollY}px`;
+      body.style.width = "100%";
+      html.style.scrollBehavior = "auto"; // Temporalmente deshabilitar smooth scroll
+    } else {
+      // Restaurar el scroll cuando la animación termine
+      const scrollY = body.style.top;
+      body.style.position = "";
+      body.style.top = "";
+      body.style.width = "";
+      html.style.scrollBehavior = "smooth"; // Restaurar smooth scroll
+
+      // Restaurar la posición del scroll si había una guardada
+      if (scrollY) {
+        window.scrollTo(0, parseInt(scrollY || "0") * -1);
+      }
+    }
+
+    // Cleanup: asegurar que el scroll se libere si el componente se desmonta
+    return () => {
+      if (shouldLockScroll) {
+        const scrollY = body.style.top;
+        body.style.position = "";
+        body.style.top = "";
+        body.style.width = "";
+        html.style.scrollBehavior = "smooth";
+
+        if (scrollY) {
+          window.scrollTo(0, parseInt(scrollY || "0") * -1);
+        }
+      }
+    };
+  }, [isComplete, fadeProgress]);
 
   if (error) {
     return (

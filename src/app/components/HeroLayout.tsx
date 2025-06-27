@@ -9,62 +9,66 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
   isAnimationComplete,
   fadeProgress,
 }) => {
-  const shouldShowButtons = fadeProgress > 0.3;
+  const shouldShowButtons = fadeProgress > 0.2;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
-          className={`absolute top-0 left-1/2 w-96 h-96 bg-gradient-radial from-yellow-100/10 via-yellow-200/5 to-transparent rounded-full blur-3xl transition-all duration-3000 ${
+          className={`absolute top-0 left-1/2 w-96 h-96 bg-gradient-radial from-yellow-100/10 via-yellow-200/5 to-transparent rounded-full blur-3xl transition-all duration-1500 ${
             isAnimationComplete ? "opacity-100 scale-150" : "opacity-0 scale-75"
           }`}
           style={{
             transform: isAnimationComplete
               ? "translateX(-50%) translateY(-10%) rotate(180deg)"
               : "translateX(-50%) translateY(-30%) rotate(0deg)",
-            transitionDelay: "0.5s",
+            transitionDelay: "0.2s",
           }}
         />
 
         <div
-          className={`absolute bottom-0 right-0 w-64 h-64 bg-gradient-radial from-blue-100/8 via-purple-200/4 to-transparent rounded-full blur-2xl transition-all duration-4000 ${
+          className={`absolute bottom-0 right-0 w-64 h-64 bg-gradient-radial from-blue-100/8 via-purple-200/4 to-transparent rounded-full blur-2xl transition-all duration-2000 ${
             isAnimationComplete ? "opacity-100 scale-200" : "opacity-0 scale-50"
           }`}
           style={{
             transform: isAnimationComplete
               ? "translate(-20%, -20%) rotate(-90deg)"
               : "translate(10%, 10%) rotate(0deg)",
-            transitionDelay: "0.8s",
+            transitionDelay: "0.3s",
           }}
         />
       </div>
 
       <nav
-        className={`absolute top-8 right-8 flex gap-8 text-lg z-20 transition-all duration-1000 ${
+        className={`absolute top-8 right-8 flex gap-8 text-lg z-20 transition-all duration-600 ${
           isAnimationComplete
             ? "opacity-100 translate-y-0 rotate-0"
             : "opacity-0 -translate-y-4 rotate-3"
         }`}
         style={{
           color: "#f8edbd",
-          transitionDelay: isAnimationComplete ? "0.2s" : "0s",
+          transitionDelay: isAnimationComplete ? "0.1s" : "0s",
           filter: isAnimationComplete
             ? "drop-shadow(0 0 20px rgba(248, 237, 189, 0.3))"
             : "none",
         }}
       >
-        {["Inicio", "Colección", "Contacto"].map((item, index) => (
+        {[
+          { label: "Inicio", href: "#" },
+          { label: "Colección", href: "#colección" },
+          { label: "Contacto", href: "#contacto" },
+        ].map((item, index) => (
           <a
-            key={item}
-            href="#"
+            key={item.label}
+            href={item.href}
             className="hover:text-gray-300 transition-all duration-300 relative group overflow-hidden"
             style={{
               transitionDelay: isAnimationComplete
-                ? `${0.3 + index * 0.1}s`
+                ? `${0.15 + index * 0.05}s`
                 : "0s",
             }}
           >
-            <span className="relative z-10">{item}</span>
+            <span className="relative z-10">{item.label}</span>
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
             <div className="absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-yellow-200 to-yellow-100 scale-x-0 group-hover:scale-x-100 transition-transform duration-300" />
           </a>
@@ -72,14 +76,14 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
       </nav>
 
       <div
-        className={`absolute right-10 top-1/2 transform -translate-y-1/2 text-right max-w-2xl z-20 transition-all duration-1200 ${
+        className={`absolute right-10 top-1/2 transform -translate-y-1/2 text-right max-w-2xl z-20 transition-all duration-800 ${
           isAnimationComplete
             ? "opacity-100 translate-x-0 rotate-0"
             : "opacity-0 translate-x-8 rotate-1"
         }`}
         style={{
           color: "#f8edbd",
-          transitionDelay: isAnimationComplete ? "0.4s" : "0s",
+          transitionDelay: isAnimationComplete ? "0.2s" : "0s",
           filter: isAnimationComplete
             ? "drop-shadow(0 0 30px rgba(248, 237, 189, 0.2))"
             : "none",
@@ -87,34 +91,34 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
       >
         <h1 className="text-6xl md:text-8xl font-light mb-6 relative overflow-hidden">
           <span
-            className={`inline-block transition-all duration-1500 ${
+            className={`inline-block transition-all duration-800 ${
               isAnimationComplete
                 ? "transform translate-y-0 opacity-100"
                 : "transform translate-y-full opacity-0"
             }`}
-            style={{ transitionDelay: isAnimationComplete ? "0.6s" : "0s" }}
+            style={{ transitionDelay: isAnimationComplete ? "0.3s" : "0s" }}
           >
             Galaxia
           </span>
           <span className="mx-4" />
           <span
-            className={`inline-block transition-all duration-1500 ${
+            className={`inline-block transition-all duration-800 ${
               isAnimationComplete
                 ? "transform translate-y-0 opacity-100"
                 : "transform translate-y-full opacity-0"
             }`}
-            style={{ transitionDelay: isAnimationComplete ? "0.8s" : "0s" }}
+            style={{ transitionDelay: isAnimationComplete ? "0.4s" : "0s" }}
           >
             al
           </span>
           <span className="mx-4" />
           <span
-            className={`inline-block transition-all duration-1500 ${
+            className={`inline-block transition-all duration-800 ${
               isAnimationComplete
                 ? "transform translate-y-0 opacity-100"
                 : "transform translate-y-full opacity-0"
             }`}
-            style={{ transitionDelay: isAnimationComplete ? "1.0s" : "0s" }}
+            style={{ transitionDelay: isAnimationComplete ? "0.5s" : "0s" }}
           >
             óleo
           </span>
@@ -123,21 +127,21 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
             className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-100/20 to-transparent opacity-0"
             style={{
               animationName: isAnimationComplete ? "shimmer" : "none",
-              animationDuration: "3s",
+              animationDuration: "2s",
               animationTimingFunction: "ease-in-out",
               animationIterationCount: "infinite",
-              animationDelay: "2s",
+              animationDelay: "1s",
             }}
           />
         </h1>
 
         <p
-          className={`text-xl md:text-2xl font-light transition-all duration-1000 ${
+          className={`text-xl md:text-2xl font-light transition-all duration-600 ${
             isAnimationComplete
               ? "opacity-100 translate-x-0"
               : "opacity-0 translate-x-4"
           }`}
-          style={{ transitionDelay: isAnimationComplete ? "1.2s" : "0s" }}
+          style={{ transitionDelay: isAnimationComplete ? "0.6s" : "0s" }}
         >
           Una mirada artística
           <br />
@@ -146,13 +150,13 @@ const HeroLayout: React.FC<HeroLayoutProps> = ({
       </div>
 
       <div
-        className={`absolute bottom-20 left-20 flex gap-6 z-20 transition-all duration-2000 ${
+        className={`absolute bottom-20 left-20 flex gap-6 z-20 transition-all duration-1000 ${
           shouldShowButtons
             ? "opacity-100 translate-y-0 scale-100 rotate-0"
             : "opacity-0 translate-y-12 scale-95 rotate-2"
         }`}
         style={{
-          transitionDelay: shouldShowButtons ? "0.3s" : "0s",
+          transitionDelay: shouldShowButtons ? "0.2s" : "0s",
           transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
         }}
       >
